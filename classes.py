@@ -6,13 +6,6 @@ import openai
 import dotenv
 from datetime import datetime
 
-#     1. gt 무비 (이게 근데 이름(연도) 로 하면 무비 테이블 자체에는 이름만 들어가있어서 나중에 id 형태로 사용하기에 무리가 있을 거 같기는 해서 그러면 링크도 저장해야하는데 좀 애매하네요)
-# 2. 페르소나
-# 3. 어떤 유저인지(크리틱 아이디 or critic name -> 어떤 걸로 저장할까요? 그룹은 이름으로 내고 있어서 이름으로 해도 될 듯 합니다)
-# 4. 대화 내용(그냥 전체 스트링으로 저장)
-# 5. ratings 5개(링크 혹은 타이틀만)
-# 6. 턴수
-# 7. 캐쥬얼 or not
 
 dotenv_file = dotenv.find_dotenv()
 dotenv.load_dotenv(dotenv_file)
@@ -193,36 +186,39 @@ Movie to Recommend:
         count = 0
         for item in self.data_manager.output:
             # if item['index'] == 0:
-            if item['index'] == 0 or item['index'] == 1:
-                # if item['conversation'] == None:
-                # try:
-                print(f'working on {item["index"]}...')
-                gt = item['gt_movie']
-                ratings = item['used_ratings']
-                persona_prompt = self.generate_persona_prompt(gt, ratings)
-                persona = self.request_openai_api(
-                    persona_prompt, is_dialog=False)
-                turn_num = item['turn_num']
-                is_casual = item['is_casual']
+                # if item['index'] == 0 or item['index'] == 1:
+            if item['conversation'] == None:
+                try:
+                    print(f'working on {item["index"]}...')
+                    # raise ValueError("Divide by zero error occurred")
+                    gt = item['gt_movie']
+                    ratings = item['used_ratings']
+                    persona_prompt = self.generate_persona_prompt(gt, ratings)
+                    persona = self.request_openai_api(
+                        persona_prompt, is_dialog=False)
+                    turn_num = item['turn_num']
+                    is_casual = item['is_casual']
 
-                gt = json.loads(gt)
-                dialog_prompt = self.generate_dialog_prompt(
-                    gt['movie_title'], persona, turn_num, is_casual)
+                    gt = json.loads(gt)
+                    dialog_prompt = self.generate_dialog_prompt(
+                        gt['movie_title'], persona, turn_num, is_casual)
 
-                dialog = self.request_openai_api(dialog_prompt, is_dialog=True)
+                    dialog = self.request_openai_api(
+                        dialog_prompt, is_dialog=True)
 
-                item['persona'] = persona
-                item['conversation'] = dialog
-                count += 1
+                    item['persona'] = persona
+                    item['conversation'] = dialog
+                    count += 1
 
-                # if count == 10:
-                self.save_output_file()
-                count = 0
-                break
+                    # if count == 10:
+                    self.save_output_file()
+                    count = 0
+                    break
 
-                # except Exception as e:
-                #     error_message = str(e)
-                #     self.record_error_point(item["index"], error_message)
+                except Exception as e:
+
+                    error_message = str(type(e)) + str(e)
+                    self.record_error_point(item["index"], error_message)
 
         return 1
 
