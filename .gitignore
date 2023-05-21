@@ -1,0 +1,6 @@
+*.csv
+*.json
+.env
+
+datasets/*.csv
+output/*.json
