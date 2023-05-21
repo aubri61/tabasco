@@ -1,0 +1,5 @@
+pandas
+random
+json
+openai
+python-dotenv

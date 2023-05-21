@@ -4,10 +4,11 @@ tabasco for ReelTaco
 
 ## 사용법
 
-1. datasets에 데이터셋 복사 붙여넣기
+1. datasets 폴더 생성 후 폴더 안에 에 데이터셋 복사 붙여넣기
    * [데이터셋 다운로드(구글 드라이브)](https://drive.google.com/drive/folders/1GeNp7xQDoASuxA2VMnk817FLSbKlomhJ?usp=sharing)
 2. .env 파일 생성 후 OPENAI_API_KEY= 'api key' 입력
-3. main 파일 돌리기
+3. ```pip install -r requirements.txt``` 로 library 실행
+4. main 파일 돌리기
 
 
 ## output
