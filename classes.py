@@ -4,7 +4,7 @@ import json
 import os
 import openai
 import dotenv
-
+from datetime import datetime
 
 #     1. gt 무비 (이게 근데 이름(연도) 로 하면 무비 테이블 자체에는 이름만 들어가있어서 나중에 id 형태로 사용하기에 무리가 있을 거 같기는 해서 그러면 링크도 저장해야하는데 좀 애매하네요)
 # 2. 페르소나
@@ -126,13 +126,20 @@ class Generator:
         self.groups = data_manager.grouped_critic
         self.data_manager = data_manager
         openai.api_key = OPENAI_API_KEY
+        current_date = datetime.now().date()
+        self.current_date = current_date.strftime('%Y-%m-%d')
 
-    def request_openai_api(self, prompt):
+    def request_openai_api(self, prompt, is_dialog=False):
+        # \nYou are making movie-recommending conversation.
+        # system_cont_dial =  "You are generating movie-recommending conversation between seeker and recommender, and have tremendous knowledges about movies.\nFollow the instruction as exactly as possible."
+        system_cont_dial = "You are a movie-recommending conversation generator between seeker and recommender, who has tremendous knowledges about movies.\nAnswer as concisely as possible and follow the instruction as exactly as possible."
+        system_cont_persona = "You are figuring out the peson's movie tastes and preferences and have tremendous knowledges about movies.\nAnswer as concisely as possible and follow the instruction as exactly as possible."
         response = openai.ChatCompletion.create(model="gpt-3.5-turbo",
                                                 messages=[
+                                                    {"role": "system", "content": system_cont_dial if is_dialog else system_cont_persona},
                                                     {"role": "user",
                                                         "content": prompt},
-                                                ], temperature=0.7, max_tokens=(2048)
+                                                ], temperature=0.5, max_tokens=3500,
                                                 )
 
         result = response['choices'][0]['message']['content']
@@ -161,7 +168,7 @@ The Seeker's Movie Taste:
 Movie to Recommend:
 "{gt}"
 
-When referring to movies, enclose the `title (released year)` in square brackets. ex) [Parasite (2019)]. Never enclose utterances in quotation marks."""
+ ATTENTION! When referring to movies, enclose the `title (released year)` in square brackets. ex) [Parasite (2019)]. Never enclose utterances in quotation marks. ATTENTION! The conversation should have at least 10 exchanges between the Seeker and the Recommender."""
 
     def save_output_file(self):
         with open(OUTPUT_PATH, 'w') as file:
@@ -181,36 +188,38 @@ When referring to movies, enclose the `title (released year)` in square brackets
 
         with open(ERROR_PATH, 'w') as file:
             json.dump(data, file)
-            
 
     def generate_dialog(self):
         count = 0
         for item in self.data_manager.output:
-            if item['conversation'] == None:
+            # if item['index'] == 0:
+            if item['index'] == 0 or item['index'] == 1:
+                # if item['conversation'] == None:
                 # try:
-                    print(f'working on {item["index"]}...')
-                    gt = item['gt_movie']
-                    ratings = item['used_ratings']
-                    persona_prompt = self.generate_persona_prompt(gt, ratings)
-                    persona = self.request_openai_api(persona_prompt)
-                    turn_num = item['turn_num']
-                    is_casual = item['is_casual']
+                print(f'working on {item["index"]}...')
+                gt = item['gt_movie']
+                ratings = item['used_ratings']
+                persona_prompt = self.generate_persona_prompt(gt, ratings)
+                persona = self.request_openai_api(
+                    persona_prompt, is_dialog=False)
+                turn_num = item['turn_num']
+                is_casual = item['is_casual']
 
-                    gt = json.loads(gt)
-                    dialog_prompt = self.generate_dialog_prompt(
-                        gt['movie_title'], persona, turn_num, is_casual)
+                gt = json.loads(gt)
+                dialog_prompt = self.generate_dialog_prompt(
+                    gt['movie_title'], persona, turn_num, is_casual)
 
-                    dialog = self.request_openai_api(dialog_prompt)
+                dialog = self.request_openai_api(dialog_prompt, is_dialog=True)
 
-                    item['persona'] = persona
-                    item['conversation'] = dialog
-                    count += 1
-                    
+                item['persona'] = persona
+                item['conversation'] = dialog
+                count += 1
+
                 # if count == 10:
-                    self.save_output_file()
-                    count = 0
-                    break
-                
+                self.save_output_file()
+                count = 0
+                break
+
                 # except Exception as e:
                 #     error_message = str(e)
                 #     self.record_error_point(item["index"], error_message)
