@@ -5,11 +5,8 @@ import os
 import openai
 import dotenv
 from datetime import datetime
-import requests
-import multiprocessing
-import threading
 
-import time
+import threading
 
 
 dotenv_file = dotenv.find_dotenv()
@@ -18,9 +15,6 @@ dotenv.load_dotenv(dotenv_file)
 OPENAI_API_KEY = os.environ['OPENAI_API_KEY']
 OUTPUT_PATH = './output/output.json'
 ERROR_PATH = './output/error.json'
-
-# api endpoint for sending request to get chat gpt like responses.
-API_ENDPOINT = "https://api.openai.com/v1/chat/completions"
 
 
 # managing data (save, store)
@@ -130,34 +124,6 @@ class Generator:
         current_date = datetime.now().date()
         self.current_date = current_date.strftime('%Y-%m-%d')
 
-    def send_api_request(self, prompt, is_dialog=False):
-
-        system_cont_dial = "You are a movie-recommending conversation generator between seeker and recommender, who has tremendous knowledges about movies.\nAnswer as concisely as possible and follow the instruction as exactly as possible."
-        system_cont_persona = "You are figuring out the peson's movie tastes and preferences and have tremendous knowledges about movies.\nAnswer as concisely as possible and follow the instruction as exactly as possible."
-        messages = [
-            {"role": "system",
-                "content": system_cont_dial if is_dialog else system_cont_persona},
-            {"role": "user",
-             "content": prompt},
-        ]
-
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-        }
-        payload = {
-            "messages": messages,
-            "model": "gpt-3.5-turbo",
-            "max_tokens": 3000,
-            "temperature": 0.2
-        }
-
-        response = requests.post(
-            API_ENDPOINT, headers=headers, data=json.dumps(payload))
-        response_data = response.json()
-
-        return response_data["choices"][0]["message"]['content']
-
     def request_openai_api(self, prompt, is_dialog=False):
         # \nYou are making movie-recommending conversation.
         # system_cont_dial =  "You are generating movie-recommending conversation between seeker and recommender, and have tremendous knowledges about movies.\nFollow the instruction as exactly as possible."
@@ -261,51 +227,4 @@ Movie to Recommend:
                     thread.join()
                     self.save_output_file()
 
-    def generate_dialog2(self):
-
-        count = 0
-
-        for item in self.data_manager.output:
-            # if item['index'] == 0:
-            # if item['index'] < 5:
-            # if item['index'] == 0 or item['index'] == 1:
-            if item['conversation'] == None:
-                try:
-                    print(f'working on {item["index"]}...')
-                    continue
-                    # raise ValueError("Divide by zero error occurred")
-                    gt = item['gt_movie']
-                    ratings = item['used_ratings']
-                    persona_prompt = self.generate_persona_prompt(gt, ratings)
-                    persona = self.request_openai_api(
-                        persona_prompt, is_dialog=False)
-                    turn_num = item['turn_num']
-                    is_casual = item['is_casual']
-
-                    gt = json.loads(gt)
-                    dialog_prompt = self.generate_dialog_prompt(
-                        gt['movie_title'], persona, turn_num, is_casual)
-
-                    dialog = self.request_openai_api(
-                        dialog_prompt, is_dialog=True)
-
-                    # dialog = self.send_api_request(
-                    #     dialog_prompt, is_dialog=True)
-
-                    item['persona'] = persona
-                    item['conversation'] = dialog
-                    count += 1
-
-                    if count == 10:
-                        self.save_output_file()
-                        count = 0
-
-                except Exception as e:
-
-                    error_message = str(type(e)) + str(e)
-                    print(f"error occured: {error_message}")
-                    self.record_error_point(item["index"], error_message)
-
         return 1
-
-        # generate_persona_prompt first
