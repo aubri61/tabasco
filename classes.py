@@ -7,6 +7,7 @@ import dotenv
 from datetime import datetime
 
 import threading
+import concurrent.futures
 
 
 dotenv_file = dotenv.find_dotenv()
@@ -86,11 +87,11 @@ class DataManager:
 
                 el = {
                     # 'index': count,
-                    'gt_movie': json.dumps(gt, ensure_ascii=False).encode('utf-8').decode('unicode_escape'),
+                    'gt_movie': json.dumps(gt, ensure_ascii=False),
                     'persona': None,
                     'critic_name': critic,
                     'conversation': None,
-                    'used_ratings': json.dumps(ratings, ensure_ascii=False).encode('utf-8').decode('unicode_escape'),
+                    'used_ratings': json.dumps(ratings, ensure_ascii=False),
                     'turn_num': turn_num,
                     'is_casual': is_casual
                 }
@@ -111,9 +112,10 @@ class DataManager:
         else:
             output = self.init_output_file()
             output.reset_index(inplace=True)
-            output.to_json(OUTPUT_PATH, orient='records')
+            # output.to_json(OUTPUT_PATH, orient='records')
             self.output = output.to_dict(orient='records')
-            # json.dump(self.output, file)
+            with open(OUTPUT_PATH, "w") as file:
+                json.dump(self.output, file)
 
 
 class Generator:
@@ -196,6 +198,8 @@ Movie to Recommend:
             is_casual = item['is_casual']
 
             gt = json.loads(gt)
+            
+            
             dialog_prompt = self.generate_dialog_prompt(
                 gt['movie_title'], persona, turn_num, is_casual)
 
@@ -214,17 +218,32 @@ Movie to Recommend:
     def generate_dialog(self):
         count = 0
         save_interval = 10
+        max_workers = 3 
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = set()  # Change to a set
+            
 
-        for item in self.data_manager.output:
-            if item['conversation'] is None:
-                thread = threading.Thread(
-                    target=self.process_item, args=(item,))
-                thread.start()
+            for item in self.data_manager.output:
+                if item['conversation'] is None:
+                    future = executor.submit(self.process_item, item)
+                    futures.add(future)
+                    # thread = threading.Thread(
+                    #     target=self.process_item, args=(item,))
+                    # thread.start()
 
-                count += 1
+                    count += 1
 
-                if count % save_interval == 0:
-                    thread.join()
-                    self.save_output_file()
+                    if count % save_interval == 0:
+                        concurrent.futures.wait(futures)
+                        # thread.join()
+                        self.save_output_file()
+                        
+                     # Wait until there are fewer than max_workers futures remaining
+                    while len(futures) >= max_workers:
+                        done, futures = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
+
+                        
+            concurrent.futures.wait(futures)
 
         return 1
